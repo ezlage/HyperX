@@ -1,0 +1,332 @@
+object frmTester: TfrmTester
+  Left = 338
+  Height = 640
+  Top = 105
+  Width = 896
+  BorderStyle = bsSingle
+  Caption = 'Test Suite for HyperX'
+  ClientHeight = 640
+  ClientWidth = 896
+  Constraints.MinHeight = 640
+  Constraints.MinWidth = 896
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  Position = poScreenCenter
+  LCLVersion = '2.0.6.0'
+  object stbTester: TStatusBar
+    Left = 0
+    Height = 23
+    Top = 617
+    Width = 896
+    Panels = <>
+    SimpleText = ' Example based on Poloniex; Developed by Ezequiel Lage (ezlage); Sponsored by Lageteck (lageteck.com).'
+    SizeGrip = False
+  end
+  object lblFormCenter: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideLeft.Side = asrCenter
+    AnchorSideTop.Control = Owner
+    AnchorSideTop.Side = asrCenter
+    Left = 448
+    Height = 1
+    Top = 320
+    Width = 1
+    ParentColor = False
+  end
+  object grbHT: TGroupBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = grbPrivSetts
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = lblFormCenter
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = grbLogbook
+    Left = 10
+    Height = 377
+    Top = 63
+    Width = 436
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Left = 10
+    BorderSpacing.Right = 3
+    Caption = ' Private and Public HTTP(S) API Client '
+    ClientHeight = 357
+    ClientWidth = 432
+    TabOrder = 1
+    object btnPublicHT: TButton
+      AnchorSideTop.Control = btnPrivateHT
+      AnchorSideRight.Control = btnPrivateHT
+      AnchorSideBottom.Control = btnPrivateHT
+      AnchorSideBottom.Side = asrBottom
+      Left = 262
+      Height = 25
+      Top = 0
+      Width = 80
+      Anchors = [akTop, akRight, akBottom]
+      BorderSpacing.Right = 4
+      Caption = 'Public Send'
+      OnClick = btnPublicSendClick
+      TabOrder = 0
+    end
+    object btnPrivateHT: TButton
+      AnchorSideTop.Control = grbHT
+      AnchorSideRight.Control = grbHT
+      AnchorSideRight.Side = asrBottom
+      Left = 346
+      Height = 25
+      Top = 0
+      Width = 80
+      Anchors = [akTop, akRight]
+      BorderSpacing.Right = 6
+      BorderSpacing.Bottom = 8
+      Caption = 'Private Send'
+      OnClick = btnPrivateSendClick
+      TabOrder = 1
+    end
+    object mmHT: TMemo
+      AnchorSideLeft.Control = grbHT
+      AnchorSideTop.Control = btnPrivateHT
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = grbHT
+      AnchorSideRight.Side = asrBottom
+      AnchorSideBottom.Control = grbHT
+      AnchorSideBottom.Side = asrBottom
+      Left = 6
+      Height = 316
+      Top = 33
+      Width = 420
+      Anchors = [akTop, akLeft, akRight, akBottom]
+      BorderSpacing.Left = 6
+      BorderSpacing.Right = 6
+      BorderSpacing.Bottom = 8
+      ReadOnly = True
+      ScrollBars = ssAutoVertical
+      TabOrder = 2
+    end
+    object lblHTReceived: TLabel
+      AnchorSideLeft.Control = mmHT
+      AnchorSideBottom.Control = mmHT
+      Left = 6
+      Height = 15
+      Top = 16
+      Width = 142
+      Anchors = [akLeft, akBottom]
+      BorderSpacing.Bottom = 2
+      Caption = '     === Received data ==='
+      ParentColor = False
+    end
+  end
+  object grbWebSocket: TGroupBox
+    AnchorSideLeft.Control = lblFormCenter
+    AnchorSideTop.Control = grbPrivSetts
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = grbLogbook
+    Left = 451
+    Height = 377
+    Top = 63
+    Width = 435
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Left = 3
+    BorderSpacing.Right = 10
+    Caption = ' WebSocket API Listener'
+    ClientHeight = 357
+    ClientWidth = 431
+    TabOrder = 2
+    object btnStartStop: TButton
+      AnchorSideTop.Control = grbWebSocket
+      AnchorSideRight.Control = btnPublicWS
+      AnchorSideBottom.Side = asrBottom
+      Left = 177
+      Height = 25
+      Top = 0
+      Width = 80
+      Anchors = [akTop, akRight]
+      BorderSpacing.Right = 4
+      BorderSpacing.Bottom = 8
+      Caption = 'Start'
+      OnClick = btnStartStopClick
+      TabOrder = 0
+    end
+    object btnPublicWS: TButton
+      AnchorSideTop.Control = btnStartStop
+      AnchorSideRight.Control = btnPrivateWS
+      AnchorSideBottom.Control = btnStartStop
+      AnchorSideBottom.Side = asrBottom
+      Left = 261
+      Height = 25
+      Top = 0
+      Width = 80
+      Anchors = [akTop, akRight, akBottom]
+      BorderSpacing.Right = 4
+      Caption = 'Public Send'
+      Enabled = False
+      OnClick = btnPublicWSClick
+      TabOrder = 1
+    end
+    object btnPrivateWS: TButton
+      AnchorSideTop.Control = btnStartStop
+      AnchorSideRight.Control = grbWebSocket
+      AnchorSideRight.Side = asrBottom
+      AnchorSideBottom.Control = btnStartStop
+      AnchorSideBottom.Side = asrBottom
+      Left = 345
+      Height = 25
+      Top = 0
+      Width = 80
+      Anchors = [akTop, akRight, akBottom]
+      BorderSpacing.Right = 6
+      Caption = 'Private Send'
+      Enabled = False
+      OnClick = btnPrivateWSClick
+      TabOrder = 2
+    end
+    object mmWS: TMemo
+      AnchorSideLeft.Control = grbWebSocket
+      AnchorSideTop.Control = btnStartStop
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = grbWebSocket
+      AnchorSideRight.Side = asrBottom
+      AnchorSideBottom.Control = grbWebSocket
+      AnchorSideBottom.Side = asrBottom
+      Left = 6
+      Height = 316
+      Top = 33
+      Width = 419
+      Anchors = [akTop, akLeft, akRight, akBottom]
+      BorderSpacing.Left = 6
+      BorderSpacing.Right = 6
+      BorderSpacing.Bottom = 8
+      ReadOnly = True
+      ScrollBars = ssAutoVertical
+      TabOrder = 3
+    end
+    object lblWSReceived: TLabel
+      AnchorSideLeft.Control = mmWS
+      AnchorSideBottom.Control = mmWS
+      Left = 6
+      Height = 15
+      Top = 16
+      Width = 142
+      Anchors = [akLeft, akBottom]
+      BorderSpacing.Bottom = 2
+      Caption = '     === Received data ==='
+      ParentColor = False
+    end
+  end
+  object grbLogbook: TGroupBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = stbTester
+    Left = 10
+    Height = 172
+    Top = 440
+    Width = 876
+    Anchors = [akLeft, akRight, akBottom]
+    BorderSpacing.Left = 10
+    BorderSpacing.Right = 10
+    BorderSpacing.Bottom = 5
+    Caption = ' HyperX Logbook '
+    ClientHeight = 152
+    ClientWidth = 872
+    TabOrder = 3
+    object mmLog: TMemo
+      Left = 6
+      Height = 144
+      Top = 0
+      Width = 860
+      Align = alClient
+      BorderSpacing.Left = 6
+      BorderSpacing.Right = 6
+      BorderSpacing.Bottom = 8
+      Lines.Strings = (
+        'PLEASE, SUPPORT THIS INITIATIVE!'
+        '  -> USDC: 0x38be157daf7448616ba5d4d500543c6dec8214cc'
+        '  -> BTC: 1KMBgg1h3TGPCWZyi4iFo55QvYrdo5JyRc'
+        '  -> ETH: 0x06f1382300723600b3fa9c16ae254e20264cb955'
+        '  -> DASH: Xt7BNFyCBxPdnubx5Yp1MjTn7sJLSnEd5i'
+        '  -> XMR: 4JUdGzvrMFDWrUUwY3toJATSeNwjn54LkCnKBPRzDuhzi5vSepHfUckJNxRL2gjkNrSqtCoRUrEDAgRwsQvVCjZbS3m75C1cp4sJmB9PZC'
+        '  -> LTC: LZJPrFv7a7moL6oUHPo8ecCC9FcbY49uRe'
+        '  -> ZEC: t1eGBTghmxVbPVf4cco3MrEiQ8MZPQAzBFo'
+        '  -> DCR: Dscy8ziqa2qz1oFNcbTXDyt3V1ZFZttdRcn'
+      )
+      ReadOnly = True
+      TabOrder = 0
+    end
+  end
+  object grbPrivSetts: TGroupBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 10
+    Height = 58
+    Top = 5
+    Width = 876
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Left = 10
+    BorderSpacing.Top = 5
+    BorderSpacing.Right = 10
+    Caption = ' Private Channel Settings '
+    ClientHeight = 38
+    ClientWidth = 872
+    TabOrder = 0
+    object edtAPIKey: TEdit
+      AnchorSideLeft.Control = grbPrivSetts
+      AnchorSideTop.Control = grbPrivSetts
+      AnchorSideRight.Control = lblPrivSettsCenter
+      AnchorSideBottom.Side = asrBottom
+      Left = 10
+      Height = 23
+      Top = 5
+      Width = 423
+      Anchors = [akTop, akLeft, akRight]
+      BorderSpacing.Left = 10
+      BorderSpacing.Top = 5
+      BorderSpacing.Right = 3
+      EchoMode = emPassword
+      PasswordChar = '*'
+      TabOrder = 0
+      TextHint = 'Paste the API Key here...'
+    end
+    object edtAPISecret: TEdit
+      AnchorSideLeft.Control = lblPrivSettsCenter
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = grbPrivSetts
+      AnchorSideRight.Control = grbPrivSetts
+      AnchorSideRight.Side = asrBottom
+      AnchorSideBottom.Side = asrBottom
+      Left = 440
+      Height = 23
+      Top = 5
+      Width = 422
+      Anchors = [akTop, akLeft, akRight]
+      BorderSpacing.Left = 3
+      BorderSpacing.Top = 5
+      BorderSpacing.Right = 10
+      EchoMode = emPassword
+      PasswordChar = '*'
+      TabOrder = 1
+      TextHint = 'Paste the API Secret here...'
+    end
+    object lblPrivSettsCenter: TLabel
+      AnchorSideLeft.Control = grbPrivSetts
+      AnchorSideLeft.Side = asrCenter
+      AnchorSideTop.Control = grbPrivSetts
+      AnchorSideTop.Side = asrCenter
+      Left = 436
+      Height = 1
+      Top = 19
+      Width = 1
+      ParentColor = False
+    end
+  end
+  object tmTester: TTimer
+    Enabled = False
+    Interval = 1
+    OnTimer = tmTesterStartTimer
+    OnStartTimer = tmTesterStartTimer
+    left = 824
+    top = 472
+  end
+end
