@@ -1,7 +1,7 @@
 object frmTester: TfrmTester
-  Left = 338
+  Left = 411
   Height = 640
-  Top = 105
+  Top = 172
   Width = 896
   BorderStyle = bsSingle
   Caption = 'Test Suite for HyperX'
@@ -12,7 +12,7 @@ object frmTester: TfrmTester
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   Position = poScreenCenter
-  LCLVersion = '2.0.6.0'
+  LCLVersion = '2.0.10.0'
   object stbTester: TStatusBar
     Left = 0
     Height = 23
@@ -226,7 +226,7 @@ object frmTester: TfrmTester
     BorderSpacing.Left = 10
     BorderSpacing.Right = 10
     BorderSpacing.Bottom = 5
-    Caption = ' HyperX Logbook '
+    Caption = ' Logbook '
     ClientHeight = 152
     ClientWidth = 872
     TabOrder = 3
@@ -241,11 +241,11 @@ object frmTester: TfrmTester
       BorderSpacing.Bottom = 8
       Lines.Strings = (
         'PLEASE, SUPPORT THIS INITIATIVE!'
+        ''
         '  -> USDC: 0x38be157daf7448616ba5d4d500543c6dec8214cc'
         '  -> BTC: 1KMBgg1h3TGPCWZyi4iFo55QvYrdo5JyRc'
         '  -> ETH: 0x06f1382300723600b3fa9c16ae254e20264cb955'
         '  -> DASH: Xt7BNFyCBxPdnubx5Yp1MjTn7sJLSnEd5i'
-        '  -> XMR: 4JUdGzvrMFDWrUUwY3toJATSeNwjn54LkCnKBPRzDuhzi5vSepHfUckJNxRL2gjkNrSqtCoRUrEDAgRwsQvVCjZbS3m75C1cp4sJmB9PZC'
         '  -> LTC: LZJPrFv7a7moL6oUHPo8ecCC9FcbY49uRe'
         '  -> ZEC: t1eGBTghmxVbPVf4cco3MrEiQ8MZPQAzBFo'
         '  -> DCR: Dscy8ziqa2qz1oFNcbTXDyt3V1ZFZttdRcn'
@@ -326,7 +326,7 @@ object frmTester: TfrmTester
     Interval = 1
     OnTimer = tmTesterStartTimer
     OnStartTimer = tmTesterStartTimer
-    left = 824
-    top = 472
+    Left = 824
+    Top = 472
   end
 end

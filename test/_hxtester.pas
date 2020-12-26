@@ -80,6 +80,7 @@ begin
             edtAPISecret.Enabled:=False;
             Key:=Trim(edtAPIKey.Text);
             Secret:=Trim(edtAPISecret.Text);
+            Clear;
             Add(PrivateRequest(
               'command=returnCompleteBalances&nonce='+NonceMark, [
               '-X', 'POST', '-d', DataMark.QuotedString('"'),
@@ -134,7 +135,8 @@ begin
         Add('The "'+HyperTextClient+'" executable was not found!');
         Add('    You can get cURL at "https://curl.haxx.se/download.html".');
       end
-      else with mmHT.Lines do begin;
+      else with mmHT.Lines do begin
+        Clear;
         Add(PublicRequest(['https://poloniex.com/public?command=returnTicker']));
         mmLog.Lines.Add('Command "ReturnTicker" executed!');
       end;
@@ -204,9 +206,7 @@ procedure TfrmTester.tmTesterStartTimer(Sender: TObject);
 begin
   if (mmWS.Lines.Count>5000)
     then mmWS.Clear;
-  if (mmHT.Lines.Count>2500)
-    then mmHT.Clear;
-  if (mmLog.Lines.Count>1250)
+  if (mmLog.Lines.Count>2500)
     then mmLog.Clear;
   with HPX do begin
     if (Received.Count>0)

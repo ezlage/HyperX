@@ -16,13 +16,15 @@ type
   THyperX = class(TThread)
   protected
     FAutoRestart, FAutoRetry: Boolean;
-    FCountOfRetries, FCountOfStops, FNonce, FPipeSize, FTimeout: QWord;
+    FCountOfRetries, FCountOfStops, FPipeSize, FTimeout: QWord;
     FCriticalSection: TRTLCriticalSection;
     FCryptoParams, FIWEL, FMarksToStrip, FRecvd, FPubSendQ, FPubSentQ, FPrivSendQ, FPrivSentQ: TStringList;
     FCryptoUtil, FHTClient: String;
     FDataMark, FKeyMark, FNonceMark, FPassMark, FSecretMark, FSignMark, FSplitMark: String;
     FEnd, FLastRcv, FStart: TDateTime;
     FKey, FPass, FSecret: String;
+    FNonce: Int64;
+    FProcOptions: TProcessOptions;
     FProcPriority: TProcessPriority;
     FRetryLimit: Byte;
     FWSProcess: TProcessUTF8;
@@ -43,6 +45,7 @@ type
     procedure SetPass(const AValue: String);
     procedure SetPassMark(const AValue: String);
     procedure SetPipeSize(const AValue: QWord);
+    procedure SetProcOptions(const AValue: TProcessOptions);
     procedure SetProcPriority(const AValue: TProcessPriority);
     procedure SetSecret(const AValue: String);
     procedure SetSecretMark(const AValue: String);
@@ -53,7 +56,7 @@ type
     function CheckParams(const Params: Array of String): Boolean;
     function CheckParams(const Params: TStrings): Boolean;
     function ListToArray(const StringList: TStringList): TArrOfStr;
-    function NextNonce: QWord;
+    function NextNonce: Int64;
   public
     constructor Create;
     destructor Destroy; override;
@@ -83,6 +86,7 @@ type
     property PassMark: String read FPassMark write SetPassMark;
     property PipeBufferSize: QWord read FPipeSize write SetPipeSize default 65536;
     property Priority default tpTimeCritical;
+    property ProcessOptions: TProcessOptions read FProcOptions write SetProcOptions default [poNoConsole, poUsePipes];
     property ProcessPriority: TProcessPriority read FProcPriority write SetProcPriority default ppRealTime;
     property Received: TStringList read FRecvd;
     property RetryLimit: Byte read FRetryLimit write FRetryLimit default 2;
@@ -100,6 +104,9 @@ uses
   DateUtils, FileUtil, LazFileUtils, Math;
 
 const
+  DEF_CRYPTOUTIL='openssl';
+  DEF_HTCLIENT='curl';
+  DEF_WSCLIENT='websocat';
   DEF_DATAMARK='#data#';
   DEF_KEYMARK='#key#';
   DEF_NONCEMARK='#nonce#';
@@ -112,12 +119,12 @@ const
 { THyperX }
 
 constructor THyperX.Create;
-begin //Refined at 2020-03-29 23:53
+begin //Refined at 2020-12-26 17:02
   inherited Create(True);
   InitCriticalSection(FCriticalSection);
   //Variables
+  FEnd:=IncMinute(Now, GetLocalTimeOffset);
   FNonce:=DateTimeToUnix(FEnd);
-  FEnd:=Now;
   FStart:=FEnd;
   FLastRcv:=FEnd;
   FAutoRestart:=True;
@@ -127,6 +134,7 @@ begin //Refined at 2020-03-29 23:53
   FKey:='';
   FPass:='';
   FPipeSize:=65536;
+  FProcOptions:=[poNoConsole, poUsePipes];
   FProcPriority:=ppRealTime;
   FRetryLimit:=2;
   FSecret:='';
@@ -137,7 +145,7 @@ begin //Refined at 2020-03-29 23:53
   //Objects
   FWSProcess:=TProcessUTF8.Create(nil);
   with FWSProcess do begin
-    Options:=[poNoConsole, poUsePipes];
+    Options:=FProcOptions;
     PipeBufferSize:=FPipeSize;
     Priority:=FProcPriority;
   end;
@@ -159,13 +167,13 @@ begin //Refined at 2020-03-29 23:53
   SetSignMark(DEF_SIGNMARK);
   SetSplitMark(DEF_SPLITMARK);
   //External programs
-  SetCryptoUtil('openssl');
-  SetHTClient('curl');
-  SetWSClient('websocat');
+  SetCryptoUtil(DEF_CRYPTOUTIL);
+  SetHTClient(DEF_HTCLIENT);
+  SetWSClient(DEF_WSCLIENT);
 end;
 
 destructor THyperX.Destroy;
-begin //Refined at 2020-04-08 01:23
+begin //Refined at 2020-12-25 23:09
   //Properties
   FreeOnTerminate:=False;
   Priority:=tpNormal;
@@ -198,6 +206,7 @@ begin //Refined at 2020-04-08 01:23
   FPass:='';
   FPassMark:='';
   FPipeSize:=0;
+  FProcOptions:=[];
   FProcPriority:=ppNormal;
   FRetryLimit:=0;
   FSecret:='';
@@ -252,8 +261,9 @@ begin //Refined at 2020-03-22 14:44
 end;
 
 function THyperX.GetSignature(const Data: String; const Params: Array of String): String;
-var //Refined at 2020-04-08 01:40
+var //Refined at 2020-12-26 03:29
   Attempts: Byte=0;
+  Buffer: String='';
   TLSSL_Process: TProcessUTF8=nil;
 begin
   if (CheckParams(Params))
@@ -261,7 +271,7 @@ begin
       TLSSL_Process:=TProcessUTF8.Create(nil);
       with TLSSL_Process do try
         Executable:=FCryptoUtil;
-        Options:=[poNoConsole, poUsePipes];
+        Options:=FProcOptions;
         Parameters.AddStrings(Params);
         PipeBufferSize:=FPipeSize;
         Priority:=FProcPriority;
@@ -272,16 +282,17 @@ begin
           repeat
             if (Attempts>0)
               then FCountOfRetries+=1;
-            Active:=True;
+            Result:='';
+            Execute;
             Input.Write(Data[1], Length(Data));
             CloseInput;
-            WaitOnExit;
-            with Output do if (NumBytesAvailable>0)
-              then begin
-                SetLength(Result, NumBytesAvailable);
-                ReadBuffer(Result[1], NumBytesAvailable);
-                Result:=StripMarks(Result, FMarksToStrip).Trim;
-              end;
+            with Output do repeat
+              SetLength(Buffer, NumBytesAvailable);
+              ReadBuffer(Buffer[1], Length(Buffer));
+              if (Length(Buffer)>0)
+                then Result:=Result+Buffer;
+            until not(Running) and (NumBytesAvailable=0);
+            Result:=StripMarks(Result, FMarksToStrip).Trim;
             Attempts+=1;
           until (Result<>'') or (Attempts=FRetryLimit) or (AutoRetry=False);
         except
@@ -289,6 +300,7 @@ begin
         end;
       finally
         Attempts:=0;
+        Buffer:='';
         FreeAndNil(TLSSL_Process);
       end;
     end;
@@ -318,15 +330,16 @@ begin
   end;
 end;
 
-function THyperX.NextNonce: QWord;
-begin //Refined at 2020-03-22 17:01
-  FNonce:=Max(FNonce+1, DateTimeToUnix(Now));
+function THyperX.NextNonce: Int64;
+begin //Refined at 2020-12-26 17:02
+  FNonce:=Max(FNonce+1, DateTimeToUnix(IncMinute(Now, GetLocalTimeOffset)));
   Result:=FNonce;
 end;
 
 function THyperX.PrivateRequest(const Data: String; const Params: Array of String): String;
-var //Refined at 2020-04-08 01:41
+var //Refined at 2020-12-26 03:30
   Attempts: Byte=0;
+  Buffer: String='';
   CURL_Process: TProcessUTF8=nil;
   CurNonce: QWord=0;
   PrepData: String='';
@@ -337,14 +350,13 @@ begin
       EnterCriticalSection(FCriticalSection);
       with CURL_Process do try
         Executable:=FHTClient;
-        Options:=[poNoConsole, poUsePipes];
+        Options:=FProcOptions;
         PipeBufferSize:=FPipeSize;
         Priority:=FProcPriority;
         try
           repeat
             if (Attempts>0)
               then FCountOfRetries+=1;
-            SetLength(Result, 0);
             Parameters.AddStrings(Params, True);
             CurNonce:=NextNonce;
             PrepData:=StringReplace(Data, FNonceMark, CurNonce.ToString, [rfReplaceAll]);
@@ -353,23 +365,25 @@ begin
             ReplaceMark(FPassMark, FPass, Parameters);
             ReplaceMark(FSecretMark, FSecret, Parameters);
             ReplaceMark(FSignMark, GetSignature(PrepData, ListToArray(FCryptoParams)), Parameters);
-            Active:=True;
+            Result:='';
+            Execute;
             CloseInput;
-            WaitOnExit;
-            with Output do if (NumBytesAvailable>0)
-              then begin
-                SetLength(Result, NumBytesAvailable);
-                ReadBuffer(Result[1], NumBytesAvailable);
-                Result:=StripMarks(Result, FMarksToStrip).Trim;
-              end;
+            with Output do repeat
+              SetLength(Buffer, NumBytesAvailable);
+              ReadBuffer(Buffer[1], Length(Buffer));
+              if (Length(Buffer)>0)
+                then Result:=Result+Buffer;
+            until not(Running) and (NumBytesAvailable=0);
+            Result:=StripMarks(Result, FMarksToStrip).Trim;
             Attempts+=1;
-          until (Result.Trim<>'') or (Attempts=FRetryLimit) or (AutoRetry=False);
+          until (Result<>'') or (Attempts=FRetryLimit) or (AutoRetry=False);
         except
           on E: Exception do RaiseException(E);
         end;
       finally
         LeaveCriticalSection(FCriticalSection);
         Attempts:=0;
+        Buffer:='';
         CurNonce:=0;
         FreeAndNil(CURL_Process);
         PrepData:='';
@@ -378,8 +392,9 @@ begin
 end;
 
 function THyperX.PublicRequest(const Params: Array of String): String;
-var //Refined at 2020-03-22 17:14
+var //Refined at 2020-12-26 03:31
   Attempts: Byte=0;
+  Buffer: String='';
   CURL_Process: TProcessUTF8=nil;
 begin
   if CheckParams(Params)
@@ -387,7 +402,7 @@ begin
       CURL_Process:=TProcessUTF8.Create(nil);
       with CURL_Process do try
         Executable:=FHTClient;
-        Options:=[poNoConsole, poUsePipes];
+        Options:=FProcOptions;
         Parameters.AddStrings(Params);
         PipeBufferSize:=FPipeSize;
         Priority:=FProcPriority;
@@ -395,23 +410,24 @@ begin
           repeat
             if (Attempts>0)
               then FCountOfRetries+=1;
-            SetLength(Result, 0);
-            Active:=True;
+            Result:='';
+            Execute;
             CloseInput;
-            WaitOnExit;
-            with Output do if (NumBytesAvailable>0)
-              then begin
-                SetLength(Result, NumBytesAvailable);
-                ReadBuffer(Result[1], NumBytesAvailable);
-                Result:=StripMarks(Result, FMarksToStrip).Trim;
-              end;
+            with Output do repeat
+              SetLength(Buffer, NumBytesAvailable);
+              ReadBuffer(Buffer[1], Length(Buffer));
+              if (Length(Buffer)>0)
+                then Result:=Result+Buffer;
+            until not(Running) and (NumBytesAvailable=0);
+            Result:=StripMarks(Result, FMarksToStrip).Trim;
             Attempts+=1;
-          until (Result.Trim<>'') or (Attempts=FRetryLimit) or (AutoRetry=False);
+          until (Result<>'') or (Attempts=FRetryLimit) or (AutoRetry=False);
         except
           on E: Exception do RaiseException(E);
         end;
       finally
         Attempts:=0;
+        Buffer:='';
         FreeAndNil(CURL_Process);
       end;
     end;
@@ -441,12 +457,12 @@ begin
 end;
 
 procedure THyperX.Execute;
-var //Refined at 2020-03-22 17:52
+var //Refined at 2020-12-26 17:03
   Buffer: String='';
   ToRead: LongWord=0;
 
   procedure DoReceive;
-  begin //Refined at 2020-03-22 17:47
+  begin //Refined at 2020-12-26 17:03
     with FWSProcess do with Output do begin
       ToRead:=NumBytesAvailable;
       if (ToRead>0)
@@ -454,7 +470,7 @@ var //Refined at 2020-03-22 17:52
           SetLength(Buffer, ToRead);
           Read(Buffer[1], ToRead);
           FRecvd.Add(Buffer);
-          FLastRcv:=Now;
+          FLastRcv:=IncMinute(Now, GetLocalTimeOffset);
         end;
     end;
   end;
@@ -511,7 +527,7 @@ var //Refined at 2020-03-22 17:52
   end;
 
   procedure GetIWEL;
-  begin //Refined at 2020-03-22 17:48
+  begin //Refined at 2020-12-26 17:03
     with FWSProcess do with Stderr do begin
       ToRead:=NumBytesAvailable;
       if (ToRead>0)
@@ -519,7 +535,7 @@ var //Refined at 2020-03-22 17:52
           SetLength(Buffer, ToRead);
           Read(Buffer[1], ToRead);
           FIWEL.Add(Buffer);
-          FLastRcv:=Now;
+          FLastRcv:=IncMinute(Now, GetLocalTimeOffset);
         end;
     end;
   end;
@@ -527,7 +543,7 @@ var //Refined at 2020-03-22 17:52
 begin
   with FWSProcess do if (CheckParams(Parameters))
     then try
-      FStart:=Now;
+      FStart:=IncMinute(Now, GetLocalTimeOffset);
       FEnd:=FStart;
       FLastRcv:=FEnd;
       repeat
@@ -537,8 +553,8 @@ begin
           DoPublicSend;
           DoReceive;
           GetIWEL;
-          FEnd:=Now;
-          if (FTimeout<>0) and (MilliSecondsBetween(FLastRcv, Now)>FTimeout)
+          FEnd:=IncMinute(Now, GetLocalTimeOffset);
+          if (FTimeout<>0) and (MilliSecondsBetween(FLastRcv, IncMinute(Now, GetLocalTimeOffset))>FTimeout)
             then begin
               Active:=False;
               FCountOfStops+=1;
@@ -558,7 +574,7 @@ begin
       on E: Exception do RaiseException(E);
     end;
   Buffer:='';
-  FEnd:=Now;
+  FEnd:=IncMinute(Now, GetLocalTimeOffset);
   ToRead:=0;
 end;
 
@@ -604,7 +620,7 @@ begin //Refined at 2020-03-22 17:42
 end;
 
 procedure THyperX.SetCryptoUtil(const AValue: String);
-var //Refined at 2020-03-22 17:40
+var //Refined at 2020-12-26 01:53
   DefPath: String='';
 begin
   if ({%H-}AValue.Trim<>'')
@@ -616,7 +632,8 @@ begin
           DefPath:='';
         end
         else if (FileExists(AValue.Trim))
-          then FCryptoUtil:=AValue.Trim;
+          then FCryptoUtil:=AValue.Trim
+          else FCryptoUtil:=DEF_CRYPTOUTIL;
     end;
 end;
 
@@ -627,7 +644,7 @@ begin //Refined at 2020-03-22 18:23
 end;
 
 procedure THyperX.SetHTClient(const AValue: String);
-var //Refined at 2020-03-22 17:38
+var //Refined at 2020-12-26 01:53
   DefPath: String='';
 begin
   if ({%H-}AValue.Trim<>'')
@@ -639,7 +656,8 @@ begin
           DefPath:='';
         end
         else if (FileExists(AValue.Trim))
-          then FHTClient:=AValue.Trim;
+          then FHTClient:=AValue.Trim
+          else FHTClient:=DEF_HTCLIENT;
     end;
 end;
 
@@ -674,15 +692,34 @@ begin //Refined at 2020-03-22 18:22
 end;
 
 procedure THyperX.SetPipeSize(const AValue: QWord);
-begin //Refined at 2020-03-22 17:32
-  if not(FWSProcess.Running) and (FWSProcess.PipeBufferSize<>AValue)
-    then FPipeSize:=AValue;
+begin //Refined at 2020-12-26 01:45
+  if not(FWSProcess.Running) and (FPipeSize<>AValue)
+    then begin
+      FPipeSize:=AValue;
+      FWSProcess.PipeBufferSize:=FPipeSize;
+    end;
+end;
+
+procedure THyperX.SetProcOptions(const AValue: TProcessOptions);
+begin //Refined at 2020-12-26 01:47
+  if not(FWSProcess.Running) and (FProcOptions<>AValue)
+    then begin
+      FProcOptions:=AValue;
+      if poNoConsole in FProcOptions
+        then Exclude(FProcOptions, poNewConsole);
+      if poRunSuspended in FProcOptions
+        then Exclude(FProcOptions, poWaitOnExit);
+      FWSProcess.Options:=FProcOptions;
+    end;
 end;
 
 procedure THyperX.SetProcPriority(const AValue: TProcessPriority);
-begin //Refined at 2020-03-22 17:32
-  if not(FWSProcess.Running) and (FWSProcess.Priority<>AValue)
-    then FProcPriority:=AValue;
+begin //Refined at 2020-12-26 01:48
+  if not(FWSProcess.Running) and (FProcPriority<>AValue)
+    then begin
+      FProcPriority:=AValue;
+      FWSProcess.Priority:=FProcPriority;
+    end;
 end;
 
 procedure THyperX.SetSecret(const AValue: String);
@@ -716,7 +753,7 @@ begin //Refined at 2020-03-22 17:27
 end;
 
 procedure THyperX.SetWSClient(const AValue: String);
-var //Refined at 2020-03-22 17:26
+var //Refined at 2020-12-26 01:54
   DefPath: String='';
 begin
   with FWSProcess do begin
@@ -729,7 +766,8 @@ begin
             DefPath:='';
           end
           else if (FileExists(AValue.Trim))
-            then Executable:=AValue.Trim;
+            then Executable:=AValue.Trim
+            else Executable:=DEF_WSCLIENT;
       end;
   end;
 end;
