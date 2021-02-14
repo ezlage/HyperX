@@ -1,16 +1,15 @@
 program hxTester;
 
-{$mode objfpc}{$H+}{$codepage utf8}
+{$mode objfpc}{$H+}
 
 uses
-  {$IFDEF UNIX}{$IFDEF UseCThreads}cthreads,{$ENDIF}{$ENDIF}
-  Interfaces, Forms, SysUtils, LazFileUtils, _hxTester
-  {$IFDEF WINDOWS}, Windows{$ENDIF};
+  {$IFDEF UNIX}cmem, {$IFDEF UseCThreads}cthreads, {$ENDIF}{$ENDIF}
+  Interfaces, {$IFDEF WINDOWS}Windows, {$ENDIF}Forms, SysUtils, LazFileUtils, _hxTester, Poloniex;
 
 {$R *.res}
 
 begin
-  {$IFDEF WINDOWS}SetPriorityClass(GetCurrentProcess,REALTIME_PRIORITY_CLASS);{$ENDIF}
+  {$IFDEF WINDOWS}SetPriorityClass(GetCurrentProcess, HIGH_PRIORITY_CLASS);{$ENDIF}
   {$IF DECLARED(UseHeapTrace)}
     GlobalSkipIfNoLeaks:=True;
     with Application do try
@@ -27,4 +26,3 @@ begin
   Application.Run;
   Application.Free;
 end.
-

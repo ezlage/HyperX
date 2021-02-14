@@ -25,6 +25,7 @@
     </General>
     <VersionInfo>
       <UseVersionInfo Value="True"/>
+      <BuildNr Value="2"/>
       <Attributes pvaPreRelease="True"/>
       <StringTable CompanyName="Lageteck" FileDescription="Test Suite for HyperX" InternalName="hxtester" LegalCopyright="© Lageteck®" LegalTrademarks="Lageteck™ HyperX™" OriginalFilename="hxtester" ProductName="HyperX" ProductVersion="0"/>
     </VersionInfo>
@@ -47,7 +48,7 @@
         <PackageName Value="LCL"/>
       </Item2>
     </RequiredPackages>
-    <Units Count="3">
+    <Units Count="4">
       <Unit0>
         <Filename Value="hxtester.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -62,10 +63,15 @@
         <UnitName Value="_hxTester"/>
       </Unit1>
       <Unit2>
+        <Filename Value="..\poloniex.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Poloniex"/>
+      </Unit2>
+      <Unit3>
         <Filename Value="..\hyperx.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="HyperX"/>
-      </Unit2>
+      </Unit3>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -99,7 +105,7 @@
       </Options>
     </Linking>
     <Other>
-      <CustomOptions Value="-FcUTF8"/>
+      <CustomOptions Value="-dUseCThreads"/>
     </Other>
   </CompilerOptions>
 </CONFIG>

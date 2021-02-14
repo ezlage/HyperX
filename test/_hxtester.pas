@@ -1,11 +1,11 @@
 unit _hxTester;
 
-{$mode objfpc}{$H+}{$codepage utf8}
+{$mode objfpc}{$H+}
 
 interface
 
 uses
-  ComCtrls, ExtCtrls, Forms, HyperX, StdCtrls;
+  Classes, Forms, ComCtrls, ExtCtrls, StdCtrls, Poloniex;
 
 type
 
@@ -13,12 +13,12 @@ type
 
   TfrmTester = class(TForm)
     btnPrivateHT, btnPrivateWS, btnPublicHT, btnPublicWS, btnStartStop: TButton;
+    cbExtMsgs: TCheckBox;
     edtAPIKey, edtAPISecret: TEdit;
     grbHT, grbLogbook, grbPrivSetts, grbWebSocket: TGroupBox;
-    lblHTReceived: TLabel;
-    lblWSReceived: TLabel;
-    lblFormCenter, lblPrivSettsCenter: TLabel;
+    lblFormCenter, lblHTReceived, lblPrivSettsCenter, lblWSReceived: TLabel;
     mmHT, mmLog, mmWS: TMemo;
+    pnlExtMsgs: TPanel;
     stbTester: TStatusBar;
     tmTester: TTimer;
     procedure btnPrivateSendClick(Sender: TObject);
@@ -28,17 +28,20 @@ type
     procedure btnStartStopClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure tmTesterStartTimer(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure ReceiveData(const Data: String);
+    procedure ReceiveLog(const Data: String);
+    procedure tmTesterTimer(Sender: TObject);
   end;
 
 var
   frmTester: TfrmTester;
-  HPX: THyperX=nil;
+  HPX: TwpPoloniex=nil;
 
 implementation
 
 uses
-  FileUtil, SysUtils;
+  SysUtils, Dialogs;
 
 {$R *.lfm}
 
@@ -48,18 +51,17 @@ procedure TfrmTester.btnPrivateSendClick(Sender: TObject);
 var
   AllRight: Boolean=True;
 begin
-  mmLog.ScrollBars:=ssAutoVertical;
   with HPX do begin
-    if (FindDefaultExecutablePath(HyperTextClient)='')
+    if not(FileExists(HyperTextClient))
       then with mmLog.Lines do begin
         Add('The "'+HyperTextClient+'" executable was not found!');
         Add('    You can get cURL at "https://curl.haxx.se/download.html".');
         AllRight:=False;
       end;
-    if (FindDefaultExecutablePath(CryptoUtil)='')
+    if not(FileExists(CryptoUtil))
       then with mmLog.Lines do begin
         Add('The "'+CryptoUtil+'" executable was not found!');
-        Add('    You can get OpenSSL at "https://slproweb.com/products/Win32OpenSSL.html".');
+        Add('    You can get OpenSSL at "https://wiki.openssl.org/index.php/Binaries".');
         AllRight:=False;
       end;
     if (Trim(edtAPIKey.Text)='')
@@ -75,23 +77,24 @@ begin
           edtAPISecret.SetFocus;
         end
         else if (AllRight)
-          then with mmHT.Lines do begin
+          then begin
             edtAPIKey.Enabled:=False;
             edtAPISecret.Enabled:=False;
             Key:=Trim(edtAPIKey.Text);
             Secret:=Trim(edtAPISecret.Text);
-            Clear;
-            Add(PrivateRequest(
-              'command=returnCompleteBalances&nonce='+NonceMark, [
-              '-X', 'POST', '-d', DataMark.QuotedString('"'),
-              '-H', '"Key: '+KeyMark+'"',
-              '-H', '"Sign: '+SignMark+'"',
-              'https://poloniex.com/tradingApi']
-            ));
-            mmLog.Lines.Add('Command "ReturnCompleteBalances" executed!');
+            with mmHT do begin
+              Lines.Clear;
+              Lines.AddText(ReturnCompleteBalances);
+              CaretPos:=Point(0, Lines.Count-1);
+              SelStart:=MaxInt;
+            end;
+            with mmLog do begin
+              Lines.Add('Calling "ReturnCompleteBalances"...');
+              CaretPos:=Point(0, Lines.Count-1);
+              SelStart:=MaxInt;
+            end;
           end;
   end;
-  mmLog.ScrollBars:=ssAutoVertical;
 end;
 
 procedure TfrmTester.btnPrivateWSClick(Sender: TObject);
@@ -114,86 +117,73 @@ begin
         edtAPISecret.Enabled:=False;
         Key:=Trim(edtAPIKey.Text);
         Secret:=Trim(edtAPISecret.Text);
-        Send2PrivateWSQ(
-          'nonce='+NonceMark,
-          '{"command": "subscribe", '+
-           '"channel": 1000, '+
-           '"key": '+KeyMark.QuotedString('"')+', '+
-           '"payload": '+DataMark.QuotedString('"')+', '+
-           '"sign": '+SignMark.QuotedString('"')+'}'
-        );
-        mmLog.Lines.Add('Subscription command to "Account Notifications" sent!');
+        mmLog.Lines.Add('Subscribing to the "Account Notifications" channel...');
+        PrivateSubscribe('1000');
       end;
 end;
 
 procedure TfrmTester.btnPublicSendClick(Sender: TObject);
 begin
-  mmLog.ScrollBars:=ssAutoVertical;
   with HPX do
-    if (FindDefaultExecutablePath(HyperTextClient)='')
+    if not(FileExists(HyperTextClient))
       then with mmLog.Lines do begin
         Add('The "'+HyperTextClient+'" executable was not found!');
         Add('    You can get cURL at "https://curl.haxx.se/download.html".');
       end
-      else with mmHT.Lines do begin
-        Clear;
-        Add(PublicRequest(['https://poloniex.com/public?command=returnTicker']));
-        mmLog.Lines.Add('Command "ReturnTicker" executed!');
+      else begin
+        with mmLog do begin
+          Lines.AddText('Calling "ReturnTicker"...');
+          CaretPos:=Point(0, Lines.Count-1);
+          SelStart:=MaxInt;
+        end;
+        with mmHT do begin
+          Lines.Clear;
+          Lines.AddText(ReturnTicker);
+          CaretPos:=Point(0, Lines.Count-1);
+          SelStart:=MaxInt;
+        end;
       end;
 end;
 
 procedure TfrmTester.btnPublicWSClick(Sender: TObject);
 begin
   btnPublicWS.Enabled:=False;
-  HPX.Send2PublicWSQ('{"command": "subscribe", "channel": "BTC_ETH"}');
-  mmLog.Lines.Add('Subscription command to "BTC/ETH" sent!');
+  mmLog.Lines.Add('Subscribing to the "BTC/ETH" channel...');
+  HPX.PublicSubscribe('BTC_ETH');
 end;
 
 procedure TfrmTester.btnStartStopClick(Sender: TObject);
 begin
-  mmLog.ScrollBars:=ssAutoVertical;
-  with HPX do
-    case (btnStartStop.Tag) of
-      0: if (FindDefaultExecutablePath(WebSocketClient)='')
-        then with mmLog.Lines do begin
-          Add('The "'+WebSocketClient+'" executable was not found!');
-          Add('    You can get WebSocat at "https://github.com/vi/websocat/releases/latest".');
-          btnStartStop.Enabled:=False;
-        end
-        else begin
-          Start;
-          mmLog.Lines.Add('WebSocket listening start!');
-          btnStartStop.Tag:=1;
-          btnStartStop.Caption:='Stop';
-          btnPublicWS.Enabled:=True;
-          btnPrivateWS.Enabled:=True;
-        end;
-      1: begin
-        Terminate;
-        mmLog.Lines.Add('WebSocket listening time: '+IntToStr(HPX.ElapsedTime div 1000)+'s.');
-        btnStartStop.Tag:=0;
+  with HPX do case (btnStartStop.Tag) of
+    0: if not(FileExists(WebSocketClient))
+      then with mmLog.Lines do begin
+        Add('The "'+WebSocketClient+'" executable was not found!');
+        Add('    You can get WebSocat at "https://github.com/vi/websocat/releases/latest".');
         btnStartStop.Enabled:=False;
-        btnStartStop.Caption:='Start';
-        btnPublicWS.Enabled:=False;
-        btnPrivateWS.Enabled:=False;
+      end
+      else begin
+        Start;
+        mmLog.Lines.Add('WebSocket listening started!');
+        btnStartStop.Tag:=1;
+        btnStartStop.Caption:='Stop';
+        btnPublicWS.Enabled:=True;
+        btnPrivateWS.Enabled:=True;
       end;
+    1: begin
+      Terminate;
+      mmLog.Lines.Add('WebSocket listening time: '+IntToStr(ElapsedTime div 1000)+'s.');
+      btnStartStop.Tag:=0;
+      btnStartStop.Enabled:=False;
+      btnStartStop.Caption:='Start';
+      btnPublicWS.Enabled:=False;
+      btnPrivateWS.Enabled:=False;
     end;
+  end;
 end;
 
 procedure TfrmTester.FormCreate(Sender: TObject);
 begin
-  HPX:=THyperX.Create;
-  with HPX do begin
-    SetCryptoParams(['sha512', '-hmac', SecretMark]);
-    SetWebSocketParams([
-      '-v',
-      '-B', PipeBufferSize.ToString,
-      'wss://api2.poloniex.com'
-    ]);
-  end;
-  tmTester.Enabled:=True;
-  mmLog.Lines.Add('');
-  mmLog.VertScrollBar.Position:=0
+  HPX:=TwpPoloniex.Create;
 end;
 
 procedure TfrmTester.FormDestroy(Sender: TObject);
@@ -202,27 +192,53 @@ begin
   FreeAndNil(HPX);
 end;
 
-procedure TfrmTester.tmTesterStartTimer(Sender: TObject);
+procedure TfrmTester.FormShow(Sender: TObject);
 begin
-  if (mmWS.Lines.Count>5000)
-    then mmWS.Clear;
-  if (mmLog.Lines.Count>2500)
-    then mmLog.Clear;
+  OnShow:=nil;
+  tmTester.Enabled:=True;
+end;
+
+procedure TfrmTester.ReceiveData(const Data: String);
+begin
+  with mmWS do begin
+    Append(Data.Trim);
+    if (Lines.Count>1000)
+      then Lines.Clear;
+    CaretPos:=Point(0, Lines.Count-1);
+    SelStart:=MaxInt;
+  end;
+end;
+
+procedure TfrmTester.ReceiveLog(const Data: String);
+begin
+  with mmLog do begin
+    Append(Data.Trim);
+    if (Lines.Count>1000)
+      then Lines.Clear;
+    CaretPos:=Point(0, Lines.Count-1);
+    SelStart:=MaxInt;
+  end;
+end;
+
+procedure TfrmTester.tmTesterTimer(Sender: TObject);
+begin
   with HPX do begin
-    if (Received.Count>0)
-      then begin
-        if (Received.Strings[0]<>'')
-          then mmWS.Lines.Add(Received.Strings[0]);
-        Received.Delete(0);
-      end;
-    if (Logbook.Count>0)
-      then begin
-        if (Logbook.Strings[0]<>'')
-          then mmLog.Lines.Add(Logbook.Strings[0]);
-        Logbook.Delete(0);
-      end;
+    with Received do if (Count>0)
+      then repeat
+        ReceiveData(Strings[0]);
+        Delete(0);
+      until (Count=0);
+    with InternalLog do if (Count>0)
+      then repeat
+        ReceiveLog(Strings[0]);
+        Delete(0);
+      until (Count=0);
+    with ExternalLog do if (cbExtMsgs.Checked) and (Count>0)
+      then repeat
+        ReceiveLog(Strings[0]);
+        Delete(0);
+      until (Count=0);
   end;
 end;
 
 end.
-
